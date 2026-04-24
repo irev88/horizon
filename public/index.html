@@ -73,7 +73,7 @@
         window.onload = async () => {
             const select = document.getElementById("modelSelect");
             try {
-                const res = await fetch('/.netlify/functions/models');
+                const res = await fetch('/api/models');
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
