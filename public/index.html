@@ -162,13 +162,13 @@
             copyBtn.style.display = 'none';
 
             try {
-                let endpoint = '/.netlify/functions/chat';
+                let endpoint = '/api/chat';
                 let payload = { model, prompt };
 
-                // Route automatically to Image generation vs Chat/Vision
                 if (isImageGenerationModel(model)) {
-                    endpoint = '/.netlify/functions/image';
-                } else if (attachedImageB64) {
+                    endpoint = '/api/image';
+                }
+                else if (attachedImageB64) {
                     payload.image_b64 = attachedImageB64;
                 }
 
