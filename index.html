@@ -3,50 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NVIDIA AI on Netlify</title>
+    <title>NVIDIA AI Studio</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
-        textarea { width: 100%; height: 100px; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #ccc; }
-        button { background-color: #76b900; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #5c9000; }
-        #response { margin-top: 20px; padding: 15px; background: #f4f4f4; border-radius: 5px; white-space: pre-wrap; min-height: 50px;}
+        :root { --primary: #76b900; --primary-hover: #5c9000; --bg: #ffffff; --surface: #f4f4f4; --border: #ddd; --text: #333; }
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: var(--text); background: var(--bg); }
+        h2 { color: #000; border-bottom: 2px solid var(--primary); padding-bottom: 10px; display: inline-block; }
+        
+        .toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        select, input[type="file"], button { padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 14px; }
+        select { flex: 1; min-width: 250px; font-weight: bold;}
+        
+        button { background-color: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        button:hover { background-color: var(--primary-hover); }
+        button.secondary { background-color: var(--surface); color: var(--text); border: 1px solid var(--border); }
+        button.secondary:hover { background-color: #e2e2e2; }
+        
+        textarea { width: 100%; height: 120px; padding: 15px; border-radius: 8px; border: 1px solid var(--border); font-family: inherit; font-size: 15px; box-sizing: border-box; resize: vertical; margin-bottom: 10px;}
+        
+        .image-preview-container { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 15px; }
+        #imagePreview { max-height: 120px; border-radius: 8px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        
+        .actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        
+        .output-box { border: 1px solid var(--border); border-radius: 8px; padding: 20px; background: var(--surface); min-height: 100px; }
+        .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;}
+        .output-content { white-space: pre-wrap; line-height: 1.5; font-size: 15px; }
+        .output-img { max-width: 100%; border-radius: 8px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
 
-    <h2>Secure NVIDIA AI Chat (Netlify)</h2>
-    <textarea id="prompt" placeholder="Ask the AI something..."></textarea>
-    <button onclick="askAI()">Send Prompt</button>
+    <h2>NVIDIA AI Studio</h2>
+    
+    <div class="toolbar">
+        <select id="modelSelect">
+            <option value="">Loading models...</option>
+        </select>
+        <button class="secondary" onclick="document.getElementById('fileInput').click()">🖼️ Attach Image</button>
+        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleImageAttach(event)">
+    </div>
 
-    <div id="response">The response will appear here...</div>
+    <div class="image-preview-container">
+        <img id="imagePreview" alt="Attached preview">
+        <button id="clearImgBtn" class="secondary" style="display:none;" onclick="clearImage()">❌ Clear Image</button>
+    </div>
+
+    <textarea id="prompt" placeholder="Ask a question, request an image, or paste an image here (Ctrl+V)..."></textarea>
+    
+    <div class="actions">
+        <div>
+            <button class="secondary" onclick="pasteInput()">📋 Paste Text</button>
+        </div>
+        <button onclick="sendRequest()">🚀 Generate</button>
+    </div>
+
+    <div class="output-box">
+        <div class="output-header">
+            <strong>Output</strong>
+            <button class="secondary" id="copyBtn" style="display:none;">📋 Copy</button>
+        </div>
+        <div id="outputContent" class="output-content">Waiting for prompt...</div>
+        <img id="outputImg" class="output-img" alt="Generated Output">
+    </div>
 
     <script>
-        async function askAI() {
-            const prompt = document.getElementById("prompt").value;
-            const responseDiv = document.getElementById("response");
-            
-            if (!prompt) return;
-            
-            responseDiv.innerText = "Thinking...";
+        let attachedImageB64 = null;
+
+        // 1. Fetch Dynamic Model List on Load
+        window.onload = async () => {
+            const select = document.getElementById("modelSelect");
+            try {
+                const res = await fetch('/.netlify/functions/models');
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                // Sort models alphabetically
+                const models = data.data.sort((a,b) => a.id.localeCompare(b.id));
+                select.innerHTML = '';
+                
+                models.forEach(m => {
+                    let opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = m.id;
+                    // Default selection
+                    if (m.id.includes('llama-3.1-8b-instruct')) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                select.innerHTML = '<option value="">Error loading models. Check API Key.</option>';
+            }
+        };
+
+        // 2. Handle Image Attachment
+        function handleImageAttach(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            processImage(file);
+        }
+
+        // Allow user to Paste images directly into the text box
+        document.getElementById('prompt').addEventListener('paste', (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let item of items) {
+                if (item.kind === 'file' && item.type.includes('image/')) {
+                    processImage(item.getAsFile());
+                }
+            }
+        });
+
+        function processImage(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                attachedImageB64 = e.target.result;
+                document.getElementById('imagePreview').src = attachedImageB64;
+                document.getElementById('imagePreview').style.display = 'block';
+                document.getElementById('clearImgBtn').style.display = 'inline-block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearImage() {
+            attachedImageB64 = null;
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('clearImgBtn').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+        }
+
+        // 3. Paste Text functionality
+        async function pasteInput() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('prompt').value += text;
+            } catch (err) {
+                alert("Please use Ctrl+V or Cmd+V to paste.");
+            }
+        }
+
+        // 4. Heuristic check to see if the model generates images
+        function isImageGenerationModel(modelId) {
+            const lower = modelId.toLowerCase();
+            return lower.includes('stable-diffusion') || lower.includes('sdxl') || lower.includes('flux') || lower.includes('dall-e');
+        }
+
+        // 5. Send the Request
+        async function sendRequest() {
+            const model = document.getElementById('modelSelect').value;
+            const prompt = document.getElementById('prompt').value;
+            const outputContent = document.getElementById('outputContent');
+            const outputImg = document.getElementById('outputImg');
+            const copyBtn = document.getElementById('copyBtn');
+
+            if (!prompt) return alert("Please enter a prompt!");
+
+            // Reset Output UI
+            outputContent.style.display = 'block';
+            outputContent.innerText = "Processing request... (this may take a few seconds)";
+            outputImg.style.display = 'none';
+            copyBtn.style.display = 'none';
 
             try {
-                // Pointing to your secure Netlify serverless function!
-                const res = await fetch("/.netlify/functions/chat", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ prompt: prompt })
+                let endpoint = '/.netlify/functions/chat';
+                let payload = { model, prompt };
+
+                // Route automatically to Image generation vs Chat/Vision
+                if (isImageGenerationModel(model)) {
+                    endpoint = '/.netlify/functions/image';
+                } else if (attachedImageB64) {
+                    payload.image_b64 = attachedImageB64;
+                }
+
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
-                
+
                 const data = await res.json();
-                
-                if (res.ok) {
-                    responseDiv.innerText = data.reply;
+                if (!res.ok) throw new Error(typeof data.error === 'object' ? JSON.stringify(data.error) : data.error);
+
+                // UI Handle Image vs Text Output
+                if (data.isImage) {
+                    outputContent.style.display = 'none';
+                    outputImg.src = data.reply;
+                    outputImg.style.display = 'block';
+                    
+                    // Setup Download Button
+                    copyBtn.innerText = "💾 Download Image";
+                    copyBtn.onclick = () => {
+                        const a = document.createElement('a');
+                        a.href = data.reply;
+                        a.download = `AI_Image_${Date.now()}.png`;
+                        a.click();
+                    };
+                    copyBtn.style.display = 'inline-block';
                 } else {
-                    responseDiv.innerText = "Error: " + JSON.stringify(data.error);
+                    outputContent.innerText = data.reply;
+                    
+                    // Setup Text Copy Button
+                    copyBtn.innerText = "📋 Copy Text";
+                    copyBtn.onclick = async () => {
+                        await navigator.clipboard.writeText(data.reply);
+                        alert("Output copied to clipboard!");
+                    };
+                    copyBtn.style.display = 'inline-block';
                 }
             } catch (err) {
-                responseDiv.innerText = "Failed to connect to the Netlify Function.";
-                console.error(err);
+                outputContent.innerText = "Error: \n\n" + err.message;
             }
         }
     </script>
