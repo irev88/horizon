@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA AI on Netlify</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        textarea { width: 100%; height: 100px; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #ccc; }
+        button { background-color: #76b900; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #5c9000; }
+        #response { margin-top: 20px; padding: 15px; background: #f4f4f4; border-radius: 5px; white-space: pre-wrap; min-height: 50px;}
+    </style>
+</head>
+<body>
+
+    <h2>Secure NVIDIA AI Chat (Netlify)</h2>
+    <textarea id="prompt" placeholder="Ask the AI something..."></textarea>
+    <button onclick="askAI()">Send Prompt</button>
+
+    <div id="response">The response will appear here...</div>
+
+    <script>
+        async function askAI() {
+            const prompt = document.getElementById("prompt").value;
+            const responseDiv = document.getElementById("response");
+            
+            if (!prompt) return;
+            
+            responseDiv.innerText = "Thinking...";
+
+            try {
+                // Pointing to your secure Netlify serverless function!
+                const res = await fetch("/.netlify/functions/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    responseDiv.innerText = data.reply;
+                } else {
+                    responseDiv.innerText = "Error: " + JSON.stringify(data.error);
+                }
+            } catch (err) {
+                responseDiv.innerText = "Failed to connect to the Netlify Function.";
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>
