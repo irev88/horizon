@@ -4,35 +4,30 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Allows large multiple image payloads
+app.use(express.json({ limit: '50mb' })); 
 app.use(express.static('public')); 
 
-// 1. Fetch Models from NVIDIA and Groq
+// --- NEW: Keep-Alive Ping Endpoint ---
+app.get('/api/ping', (req, res) => res.status(200).send('Pong'));
+
+// 1. Fetch Models
 app.get('/api/models', async (req, res) => {
     try {
         let allModels =[];
 
-        // Fetch NVIDIA Models
         if (process.env.NVIDIA_API_KEY) {
-            const nvRes = await fetch('https://integrate.api.nvidia.com/v1/models', {
-                headers: { 'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}` }
-            });
+            const nvRes = await fetch('https://integrate.api.nvidia.com/v1/models', { headers: { 'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}` } });
             if (nvRes.ok) {
                 const nvData = await nvRes.json();
-                const nvModels = nvData.data.map(m => ({ id: m.id, provider: 'NVIDIA' }));
-                allModels = allModels.concat(nvModels);
+                allModels = allModels.concat(nvData.data.map(m => ({ id: m.id, provider: 'NVIDIA' })));
             }
         }
 
-        // Fetch Groq Models
         if (process.env.GROQ_API_KEY) {
-            const groqRes = await fetch('https://api.groq.com/openai/v1/models', {
-                headers: { 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` }
-            });
+            const groqRes = await fetch('https://api.groq.com/openai/v1/models', { headers: { 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` } });
             if (groqRes.ok) {
                 const groqData = await groqRes.json();
-                const groqModels = groqData.data.map(m => ({ id: m.id, provider: 'Groq' }));
-                allModels = allModels.concat(groqModels);
+                allModels = allModels.concat(groqData.data.map(m => ({ id: m.id, provider: 'Groq' })));
             }
         }
 
@@ -48,36 +43,21 @@ app.post('/api/chat', async (req, res) => {
         const { model, provider, prompt, images_b64 } = req.body;
         let messages =[];
 
-        // Support Multiple Images (Standard Vision API format)
         if (images_b64 && images_b64.length > 0) {
-            let contentArray = [{ type: "text", text: prompt }];
-            images_b64.forEach(img => {
-                contentArray.push({ type: "image_url", image_url: { url: img } });
-            });
+            let contentArray =[{ type: "text", text: prompt }];
+            images_b64.forEach(img => contentArray.push({ type: "image_url", image_url: { url: img } }));
             messages.push({ role: "user", content: contentArray });
         } else {
             messages.push({ role: "user", content: prompt });
         }
 
-        // Determine correct Provider Routing
-        const url = provider === 'Groq' 
-            ? 'https://api.groq.com/openai/v1/chat/completions' 
-            : 'https://integrate.api.nvidia.com/v1/chat/completions';
-            
+        const url = provider === 'Groq' ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://integrate.api.nvidia.com/v1/chat/completions';
         const apiKey = provider === 'Groq' ? process.env.GROQ_API_KEY : process.env.NVIDIA_API_KEY;
 
         const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: messages,
-                temperature: 0.7,
-                max_tokens: 4096
-            })
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 4096 })
         });
 
         const data = await response.json();
@@ -89,21 +69,14 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// 3. Image Generation Endpoint (NVIDIA Only)
+// 3. Image Generation Endpoint
 app.post('/api/image', async (req, res) => {
     try {
         const { model, prompt } = req.body;
         const response = await fetch('https://integrate.api.nvidia.com/v1/images/generations', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: model,
-                prompt: prompt,
-                response_format: "b64_json"
-            })
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}` },
+            body: JSON.stringify({ model, prompt, response_format: "b64_json" })
         });
 
         const data = await response.json();
@@ -119,4 +92,13 @@ app.post('/api/image', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    
+    // --- NEW: Keep-Alive Loop (Runs every 10 minutes) ---
+    // Render automatically provides process.env.RENDER_EXTERNAL_URL
+    const selfUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    setInterval(() => {
+        fetch(`${selfUrl}/api/ping`)
+            .then(() => console.log(`[Keep-Alive] Ping successful.`))
+            .catch(err => console.log(`[Keep-Alive] Ping failed:`, err.message));
+    }, 10 * 60 * 1000);
 });
