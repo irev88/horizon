@@ -1,13 +1,21 @@
 {
-    "name": "nvidia-ai-studio",
-    "version": "1.0.0",
-    "description": "NVIDIA AI Studio hosted on Render",
+    "name": "horizon-ai-studio",
+    "version": "1.1.0",
+    "description": "Horizon AI Studio - Groq and NVIDIA multi-model AI workspace",
     "main": "server.js",
+    "private": true,
+    "engines": {
+      "node": ">=18.17"
+    },
     "scripts": {
-      "start": "node server.js"
+      "start": "node server.js",
+      "check": "node --check server.js"
     },
     "dependencies": {
+      "compression": "^1.7.4",
+      "cors": "^2.8.5",
       "express": "^4.19.2",
-      "cors": "^2.8.5"
+      "express-rate-limit": "^7.4.1",
+      "helmet": "^7.1.0"
     }
   }
