@@ -4,101 +4,308 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); 
-app.use(express.static('public')); 
+app.use(express.json({ limit: '50mb' }));
+app.use(express.static('public'));
 
-// --- NEW: Keep-Alive Ping Endpoint ---
-app.get('/api/ping', (req, res) => res.status(200).send('Pong'));
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-// 1. Fetch Models
+function getApiConfig(provider) {
+    const configs = {
+        Groq: {
+            baseUrl: 'https://api.groq.com/openai/v1',
+            key: process.env.GROQ_API_KEY,
+        },
+        NVIDIA: {
+            baseUrl: 'https://integrate.api.nvidia.com/v1',
+            key: process.env.NVIDIA_API_KEY,
+        },
+    };
+    return configs[provider] || null;
+}
+
+function buildMessages(conversationHistory, prompt, images_b64) {
+    // conversationHistory: [{ role, content }]
+    const messages = [...conversationHistory];
+
+    if (images_b64 && images_b64.length > 0) {
+        const contentArray = [{ type: 'text', text: prompt }];
+        images_b64.forEach(img =>
+            contentArray.push({ type: 'image_url', image_url: { url: img } })
+        );
+        messages.push({ role: 'user', content: contentArray });
+    } else {
+        messages.push({ role: 'user', content: prompt });
+    }
+
+    return messages;
+}
+
+// ─── Keep-Alive ──────────────────────────────────────────────────────────────
+
+app.get('/api/ping', (req, res) => {
+    res.status(200).json({ status: 'ok', ts: Date.now() });
+});
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+// Simple in-memory cache so the front-end reload doesn't hammer the APIs
+let modelsCache = null;
+let modelsCacheTime = 0;
+const MODELS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 app.get('/api/models', async (req, res) => {
     try {
-        let allModels =[];
+        const now = Date.now();
+        if (modelsCache && now - modelsCacheTime < MODELS_CACHE_TTL) {
+            return res.json({ data: modelsCache, cached: true });
+        }
 
+        let allModels = [];
+        const errors = [];
+
+        // NVIDIA
         if (process.env.NVIDIA_API_KEY) {
-            const nvRes = await fetch('https://integrate.api.nvidia.com/v1/models', { headers: { 'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}` } });
-            if (nvRes.ok) {
-                const nvData = await nvRes.json();
-                allModels = allModels.concat(nvData.data.map(m => ({ id: m.id, provider: 'NVIDIA' })));
+            try {
+                const nvRes = await fetch(
+                    'https://integrate.api.nvidia.com/v1/models',
+                    { headers: { Authorization: `Bearer ${process.env.NVIDIA_API_KEY}` } }
+                );
+                if (nvRes.ok) {
+                    const nvData = await nvRes.json();
+                    const mapped = nvData.data.map(m => ({
+                        id: m.id,
+                        provider: 'NVIDIA',
+                        // Tag image-generation models so the UI can show a badge
+                        type: isImageModel(m.id) ? 'image' : 'chat',
+                    }));
+                    allModels = allModels.concat(mapped);
+                } else {
+                    errors.push(`NVIDIA API returned ${nvRes.status}`);
+                }
+            } catch (e) {
+                errors.push(`NVIDIA fetch failed: ${e.message}`);
             }
         }
 
+        // Groq
         if (process.env.GROQ_API_KEY) {
-            const groqRes = await fetch('https://api.groq.com/openai/v1/models', { headers: { 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` } });
-            if (groqRes.ok) {
-                const groqData = await groqRes.json();
-                allModels = allModels.concat(groqData.data.map(m => ({ id: m.id, provider: 'Groq' })));
+            try {
+                const groqRes = await fetch(
+                    'https://api.groq.com/openai/v1/models',
+                    { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` } }
+                );
+                if (groqRes.ok) {
+                    const groqData = await groqRes.json();
+                    const mapped = groqData.data
+                        // Groq lists whisper / TTS models too — keep only chat
+                        .filter(m => !m.id.includes('whisper') && !m.id.includes('tts'))
+                        .map(m => ({
+                            id: m.id,
+                            provider: 'Groq',
+                            type: 'chat',
+                            context_window: m.context_window,
+                        }));
+                    allModels = allModels.concat(mapped);
+                } else {
+                    errors.push(`Groq API returned ${groqRes.status}`);
+                }
+            } catch (e) {
+                errors.push(`Groq fetch failed: ${e.message}`);
             }
         }
 
-        res.json({ data: allModels });
+        if (allModels.length === 0 && errors.length > 0) {
+            return res.status(502).json({ error: errors.join('; ') });
+        }
+
+        modelsCache = allModels;
+        modelsCacheTime = now;
+
+        res.json({ data: allModels, errors: errors.length ? errors : undefined });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// 2. Chat & Vision Endpoint
+function isImageModel(id) {
+    const lower = id.toLowerCase();
+    return (
+        lower.includes('stable-diffusion') ||
+        lower.includes('sdxl') ||
+        lower.includes('flux') ||
+        lower.includes('dall-e')
+    );
+}
+
+// ─── Chat / Vision — Streaming ───────────────────────────────────────────────
+
 app.post('/api/chat', async (req, res) => {
     try {
-        const { model, provider, prompt, images_b64 } = req.body;
-        let messages =[];
+        const {
+            model,
+            provider,
+            prompt,
+            images_b64,
+            history = [],          // [{ role, content }]
+            system_prompt = '',
+            temperature = 0.7,
+            max_tokens = 4096,
+        } = req.body;
 
-        if (images_b64 && images_b64.length > 0) {
-            let contentArray =[{ type: "text", text: prompt }];
-            images_b64.forEach(img => contentArray.push({ type: "image_url", image_url: { url: img } }));
-            messages.push({ role: "user", content: contentArray });
-        } else {
-            messages.push({ role: "user", content: prompt });
+        if (!model || !provider || !prompt) {
+            return res.status(400).json({ error: 'model, provider, and prompt are required.' });
         }
 
-        const url = provider === 'Groq' ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://integrate.api.nvidia.com/v1/chat/completions';
-        const apiKey = provider === 'Groq' ? process.env.GROQ_API_KEY : process.env.NVIDIA_API_KEY;
+        const cfg = getApiConfig(provider);
+        if (!cfg) return res.status(400).json({ error: `Unknown provider: ${provider}` });
+        if (!cfg.key) return res.status(500).json({ error: `API key for ${provider} is not configured.` });
 
-        const response = await fetch(url, {
+        const messages = [];
+
+        if (system_prompt) {
+            messages.push({ role: 'system', content: system_prompt });
+        }
+
+        // Inject conversation history then the new turn
+        const fullMessages = buildMessages([...messages, ...history], prompt, images_b64);
+
+        const upstream = await fetch(`${cfg.baseUrl}/chat/completions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-            body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 4096 })
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${cfg.key}`,
+            },
+            body: JSON.stringify({
+                model,
+                messages: fullMessages,
+                temperature: parseFloat(temperature),
+                max_tokens: parseInt(max_tokens, 10),
+                stream: true,
+            }),
         });
 
-        const data = await response.json();
-        if (!response.ok) return res.status(response.status).json({ error: data });
+        if (!upstream.ok) {
+            const errData = await upstream.json().catch(() => ({ message: upstream.statusText }));
+            return res.status(upstream.status).json({ error: errData });
+        }
 
-        res.json({ reply: data.choices[0].message.content });
+        // ── Stream the SSE back to the browser ──────────────────────────────
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        let fullContent = '';
+        let inputTokens = 0;
+        let outputTokens = 0;
+
+        const reader = upstream.body;
+        let buffer = '';
+
+        for await (const chunk of reader) {
+            buffer += chunk.toString('utf8');
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // keep incomplete line for next iteration
+
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const raw = line.slice(6).trim();
+                if (raw === '[DONE]') {
+                    res.write(
+                        `data: ${JSON.stringify({
+                            done: true,
+                            usage: { input: inputTokens, output: outputTokens },
+                        })}\n\n`
+                    );
+                    res.end();
+                    return;
+                }
+
+                try {
+                    const parsed = JSON.parse(raw);
+                    const delta = parsed.choices?.[0]?.delta?.content || '';
+                    if (delta) {
+                        fullContent += delta;
+                        res.write(`data: ${JSON.stringify({ delta })}\n\n`);
+                    }
+                    // Some providers send usage mid-stream or at end
+                    if (parsed.usage) {
+                        inputTokens = parsed.usage.prompt_tokens || 0;
+                        outputTokens = parsed.usage.completion_tokens || 0;
+                    }
+                } catch {
+                    // Malformed chunk — skip
+                }
+            }
+        }
+
+        // Fallback end in case [DONE] never came
+        res.write(`data: ${JSON.stringify({ done: true, usage: { input: inputTokens, output: outputTokens } })}\n\n`);
+        res.end();
     } catch (error) {
-        res.status(500).json({ error: 'Failed to connect to AI API.' });
+        // If headers already sent, we can only close
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        } else {
+            res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+            res.end();
+        }
     }
 });
 
-// 3. Image Generation Endpoint
+// ─── Image Generation ────────────────────────────────────────────────────────
+
 app.post('/api/image', async (req, res) => {
     try {
-        const { model, prompt } = req.body;
+        const { model, prompt, width = 1024, height = 1024, steps = 30 } = req.body;
+
+        if (!model || !prompt) {
+            return res.status(400).json({ error: 'model and prompt are required.' });
+        }
+        if (!process.env.NVIDIA_API_KEY) {
+            return res.status(500).json({ error: 'NVIDIA_API_KEY is not configured.' });
+        }
+
         const response = await fetch('https://integrate.api.nvidia.com/v1/images/generations', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}` },
-            body: JSON.stringify({ model, prompt, response_format: "b64_json" })
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model,
+                prompt,
+                response_format: 'b64_json',
+                width,
+                height,
+                steps,
+            }),
         });
 
         const data = await response.json();
         if (!response.ok) return res.status(response.status).json({ error: data });
 
-        const imgSrc = data.data[0].b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : data.data[0].url;
+        const imgSrc = data.data[0].b64_json
+            ? `data:image/png;base64,${data.data[0].b64_json}`
+            : data.data[0].url;
+
         res.json({ reply: imgSrc, isImage: true });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to connect to Image API.' });
+        res.status(500).json({ error: error.message });
     }
 });
+
+// ─── Server ──────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    
-    // --- NEW: Keep-Alive Loop (Runs every 10 minutes) ---
-    // Render automatically provides process.env.RENDER_EXTERNAL_URL
+    console.log(`[Server] Running on port ${PORT}`);
+
     const selfUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
     setInterval(() => {
         fetch(`${selfUrl}/api/ping`)
-            .then(() => console.log(`[Keep-Alive] Ping successful.`))
-            .catch(err => console.log(`[Keep-Alive] Ping failed:`, err.message));
+            .then(r => r.json())
+            .then(() => console.log(`[Keep-Alive] OK`))
+            .catch(err => console.log(`[Keep-Alive] Failed:`, err.message));
     }, 10 * 60 * 1000);
 });

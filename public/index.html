@@ -5,334 +5,1405 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Studio Nexus</title>
     <style>
-        /* Modern, Futuristic Theme Variables */
+        /* ── Design Tokens ─────────────────────────────────────────── */
         :root {
-            --bg-base: #090b10;
-            --surface: rgba(22, 27, 34, 0.6);
-            --surface-hover: rgba(30, 36, 45, 0.8);
-            --border: rgba(255, 255, 255, 0.1);
-            --primary: #76b900; /* NVIDIA Green */
-            --primary-glow: rgba(118, 185, 0, 0.4);
-            --accent: #00d2ff; /* Groq / Futuristic Cyan */
-            --text-main: #e6edf3;
-            --text-muted: #8b949e;
-            --error: #ff4d4d;
+            --bg-base:        #090b10;
+            --surface:        rgba(22, 27, 34, 0.65);
+            --surface-hover:  rgba(30, 36, 45, 0.85);
+            --surface-solid:  #161b22;
+            --border:         rgba(255, 255, 255, 0.09);
+            --border-focus:   rgba(118, 185, 0, 0.6);
+            --primary:        #76b900;
+            --primary-glow:   rgba(118, 185, 0, 0.35);
+            --accent:         #00d2ff;
+            --accent-glow:    rgba(0, 210, 255, 0.25);
+            --text-main:      #e6edf3;
+            --text-muted:     #8b949e;
+            --text-dim:       #4a5568;
+            --error:          #ff5555;
+            --warning:        #f0a500;
+            --success:        #3fb950;
+            --radius-sm:      8px;
+            --radius-md:      12px;
+            --radius-lg:      16px;
+            --blur:           blur(16px);
+            --transition:     all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        body { 
-            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-            max-width: 1100px; 
-            margin: 40px auto; 
-            padding: 0 20px; 
-            color: var(--text-main); 
+        /* ── Reset / Base ──────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px 80px;
+            color: var(--text-main);
             background-color: var(--bg-base);
-            /* Futuristic ambient background glows */
-            background-image: 
-                radial-gradient(circle at top right, rgba(118, 185, 0, 0.05), transparent 50%),
-                radial-gradient(circle at bottom left, rgba(0, 210, 255, 0.05), transparent 50%);
+            background-image:
+                radial-gradient(ellipse at top right,    rgba(118,185,0,0.06),  transparent 55%),
+                radial-gradient(ellipse at bottom left,  rgba(0,210,255,0.06),  transparent 55%);
             background-attachment: fixed;
+            min-height: 100vh;
         }
 
-        h2 { 
-            font-size: 28px;
-            font-weight: 300;
+        /* ── Scrollbar ─────────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+        /* ── Typography ────────────────────────────────────────────── */
+        .site-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 36px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+
+        .logo-group { display: flex; align-items: center; gap: 14px; }
+
+        .logo-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--primary), #3a6300);
+            border-radius: var(--radius-sm);
+            display: grid; place-items: center;
+            box-shadow: 0 0 20px var(--primary-glow);
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #fff;
+        }
+        h1 span { color: var(--primary); }
+
+        .subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            transition: var(--transition);
+        }
+        .status-dot.online  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+        .status-dot.error   { background: var(--error); }
+
+        /* ── Panel / Glass Card ────────────────────────────────────── */
+        .panel {
+            background: var(--surface);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel-label {
+            font-size: 11px;
+            font-weight: 700;
             letter-spacing: 1.5px;
             text-transform: uppercase;
-            color: #fff; 
-            border-bottom: 1px solid var(--border); 
-            padding-bottom: 15px; 
-            display: inline-block; 
-            margin-bottom: 30px;
-            text-shadow: 0 0 15px var(--primary-glow);
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        
-        .toolbar { display: flex; gap: 15px; margin-bottom: 20px; align-items: stretch; flex-wrap: wrap;}
-        
-        /* Glassmorphism Inputs */
-        select, textarea, button {
-            background: var(--surface);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+        .panel-label .count-badge {
+            background: var(--primary);
+            color: #000;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 99px;
+            font-weight: 700;
+        }
+
+        /* ── Model Selector Area ───────────────────────────────────── */
+        .model-panel { display: flex; flex-direction: column; gap: 10px; }
+
+        .model-search-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-input {
+            flex: 1;
+            background: rgba(0,0,0,0.3);
             border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
             color: var(--text-main);
-            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 13px;
             font-family: inherit;
-            transition: all 0.3s ease;
+            transition: var(--transition);
         }
+        .search-input::placeholder { color: var(--text-dim); }
+        .search-input:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 8px var(--primary-glow); }
 
-        select { flex: 1; min-width: 300px; padding: 15px; font-size: 15px; height: 160px; scrollbar-color: var(--primary) transparent; }
-        select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 12px var(--primary-glow); }
-        optgroup { color: var(--accent); font-weight: bold; font-style: normal; }
-        option { color: var(--text-main); padding: 5px; }
+        select#modelSelect {
+            width: 100%;
+            height: 160px;
+            padding: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: var(--blur);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            scrollbar-color: var(--primary) transparent;
+            transition: var(--transition);
+        }
+        select#modelSelect:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 10px var(--primary-glow); }
+        optgroup { color: var(--accent); font-style: normal; font-weight: 700; font-size: 11px; letter-spacing: 1px; }
+        option  { color: var(--text-main); padding: 4px 8px; font-size: 13px; }
+        option.image-model { color: #c792ea; }
 
-        textarea { 
-            width: 100%; height: 120px; padding: 15px; font-size: 15px; 
-            box-sizing: border-box; resize: vertical; margin-bottom: 15px;
+        .model-quick-btns {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .pill-btn {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 99px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-family: inherit;
+            transition: var(--transition);
+        }
+        .pill-btn:hover { background: var(--surface-hover); color: var(--text-main); border-color: var(--primary); }
+
+        /* ── Config Panel ──────────────────────────────────────────── */
+        .config-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .config-field { display: flex; flex-direction: column; gap: 5px; }
+        .config-field label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        .config-field input[type=range] {
+            accent-color: var(--primary);
+            width: 140px;
+            cursor: pointer;
+        }
+        .config-field .range-val {
+            font-size: 12px;
+            color: var(--primary);
+            font-weight: 700;
+            min-width: 30px;
+            text-align: right;
+        }
+        .config-field select.sm-select {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            padding: 6px 10px;
+            font-size: 13px;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .config-field select.sm-select:focus { outline: none; border-color: var(--border-focus); }
+        .range-row { display: flex; align-items: center; gap: 8px; }
+
+        /* ── Textarea / Prompt ─────────────────────────────────────── */
+        .prompt-area {
+            position: relative;
+        }
+        textarea#prompt {
+            width: 100%;
+            height: 130px;
+            padding: 14px 14px 36px;
+            font-size: 15px;
+            line-height: 1.6;
+            font-family: inherit;
+            box-sizing: border-box;
+            resize: vertical;
+            background: var(--surface);
+            backdrop-filter: var(--blur);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-main);
+            transition: var(--transition);
+        }
+        textarea#prompt::placeholder { color: var(--text-dim); }
+        textarea#prompt:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 16px var(--primary-glow);
+        }
+        .prompt-footer {
+            position: absolute;
+            bottom: 10px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .char-count { font-size: 11px; color: var(--text-dim); }
+        .char-count.warn { color: var(--warning); }
+
+        /* ── System Prompt ─────────────────────────────────────────── */
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            padding: 4px 0;
+        }
+        .collapsible-header:hover .collapsible-title { color: var(--text-main); }
+        .collapsible-title {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            transition: var(--transition);
+        }
+        .chevron {
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+        .chevron.open { transform: rotate(180deg); }
+
+        .collapsible-body { display: none; margin-top: 10px; }
+        .collapsible-body.open { display: block; }
+
+        textarea#systemPrompt {
+            width: 100%;
+            height: 80px;
+            padding: 10px 12px;
+            font-size: 13px;
             line-height: 1.5;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            box-sizing: border-box;
+            resize: vertical;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--accent);
+            transition: var(--transition);
         }
-        
-        /* Styled Buttons */
-        button { 
-            padding: 12px 20px; cursor: pointer; font-weight: 600; letter-spacing: 0.5px; 
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        button:hover { background: var(--surface-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        
-        button.primary { 
-            background: linear-gradient(135deg, var(--primary), #5a8e00); 
-            color: #fff; border: none; box-shadow: 0 4px 15px var(--primary-glow); 
-        }
-        button.primary:hover { filter: brightness(1.1); box-shadow: 0 6px 20px var(--primary-glow); }
+        textarea#systemPrompt::placeholder { color: var(--text-dim); font-style: italic; }
+        textarea#systemPrompt:focus { outline: none; border-color: rgba(0,210,255,0.4); box-shadow: 0 0 10px var(--accent-glow); }
 
-        .image-preview-container { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-        .img-thumb { max-height: 90px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
-        
-        .actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
-        
-        /* Output Grid */
-        .outputs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px; }
-        
-        .output-card { 
-            background: var(--surface); 
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border); 
-            border-radius: 12px; 
-            padding: 25px; 
-            min-height: 150px;
+        /* ── Image Attachments ─────────────────────────────────────── */
+        .attachments-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 10px 0;
+        }
+        .img-thumb {
+            height: 80px;
+            width: 80px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        .img-thumb:hover { transform: scale(1.05); border-color: var(--primary); }
+        .img-thumb-wrap {
+            position: relative;
+        }
+        .img-remove {
+            position: absolute;
+            top: -6px; right: -6px;
+            width: 18px; height: 18px;
+            background: var(--error);
+            border-radius: 50%;
+            display: grid; place-items: center;
+            font-size: 10px;
+            cursor: pointer;
+            border: none;
+            color: #fff;
+            line-height: 1;
+            opacity: 0;
+            transition: var(--transition);
+        }
+        .img-thumb-wrap:hover .img-remove { opacity: 1; }
+
+        /* ── Action Bar ────────────────────────────────────────────── */
+        .actions-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 28px;
+        }
+        .actions-left { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* ── Buttons ───────────────────────────────────────────────── */
+        button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+            font-family: inherit;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-main);
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+        button:hover {
+            background: var(--surface-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+        }
+        button:active { transform: translateY(0); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        button.primary {
+            background: linear-gradient(135deg, var(--primary) 0%, #5a8e00 100%);
+            color: #fff;
+            border: none;
+            padding: 12px 28px;
+            font-size: 15px;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+        button.primary:hover { filter: brightness(1.12); box-shadow: 0 6px 28px var(--primary-glow); }
+        button.primary:disabled { filter: none; box-shadow: none; }
+
+        button.danger { border-color: rgba(255,85,85,0.3); color: var(--error); }
+        button.danger:hover { background: rgba(255,85,85,0.1); }
+
+        button.icon-btn { padding: 8px; border-radius: var(--radius-sm); }
+
+        /* ── Conversation History Banner ───────────────────────────── */
+        .history-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            background: rgba(0,210,255,0.07);
+            border: 1px solid rgba(0,210,255,0.2);
+            border-radius: var(--radius-sm);
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: var(--accent);
+        }
+        .history-bar.active { display: flex; }
+        .history-bar strong { font-weight: 700; }
+
+        /* ── Output Grid ───────────────────────────────────────────── */
+        .outputs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+            gap: 22px;
+        }
+
+        .output-card {
+            background: var(--surface);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 0;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            animation: fadeIn 0.5s ease forwards;
-            display: flex; flex-direction: column;
+            animation: fadeInUp 0.4s ease forwards;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-
-        .output-header { 
-            display: flex; justify-content: space-between; align-items: center; 
-            margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
-        .output-model-name { font-weight: 600; color: var(--accent); font-size: 14px; letter-spacing: 0.5px; }
+
+        .output-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+
+        .output-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .provider-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .provider-dot.Groq   { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+        .provider-dot.NVIDIA { background: var(--primary); box-shadow: 0 0 6px var(--primary); }
+
+        .output-model-name {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .output-model-name.Groq   { color: var(--accent); }
         .output-model-name.NVIDIA { color: var(--primary); }
 
-        /* FIX: Prevents text & errors from overflowing out of the box */
-        .output-content { 
-            white-space: pre-wrap; 
-            line-height: 1.6; 
-            font-size: 15px; 
-            overflow-wrap: break-word; 
-            word-wrap: break-word; 
-            max-width: 100%;
-            color: #d1d5db;
+        .output-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+        /* Metrics badges */
+        .metric-badge {
+            font-size: 10px;
+            padding: 3px 7px;
+            border-radius: 99px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-weight: 600;
+            white-space: nowrap;
         }
-        .output-error { color: var(--error); }
-        
-        .output-img { max-width: 100%; border-radius: 8px; margin-top: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid var(--border); }
-        .loader { color: var(--text-muted); font-style: italic; display: flex; align-items: center; gap: 8px; }
-        .loader::after { content: " ⚡"; animation: pulse 1s infinite; }
+        .metric-badge.tokens { color: var(--accent); border-color: rgba(0,210,255,0.2); }
+        .metric-badge.time   { color: var(--primary); border-color: rgba(118,185,0,0.2); }
+
+        /* Output body */
+        .output-card-body {
+            padding: 18px;
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .output-content {
+            white-space: pre-wrap;
+            line-height: 1.65;
+            font-size: 14px;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            color: #cdd9e5;
+            flex: 1;
+            min-height: 60px;
+        }
+        .output-content.error-state { color: var(--error); }
+        .output-content.loading-state {
+            color: var(--text-muted);
+            font-style: italic;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Streaming cursor */
+        .stream-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: var(--primary);
+            margin-left: 2px;
+            vertical-align: text-bottom;
+            animation: blink 0.8s step-end infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* Code blocks inside output */
+        .output-content code {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0 4px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            color: var(--accent);
+        }
+
+        .output-img {
+            max-width: 100%;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+        }
+
+        /* Output footer (copy btn row) */
+        .output-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 10px 18px;
+            border-top: 1px solid var(--border);
+            background: rgba(0,0,0,0.15);
+        }
+        .output-card-footer button { font-size: 11px; padding: 5px 12px; }
+
+        /* Thinking / spinner */
+        .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* ── Lightbox ──────────────────────────────────────────────── */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            place-items: center;
+            backdrop-filter: blur(8px);
+        }
+        .lightbox-overlay.open { display: grid; }
+        .lightbox-overlay img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: var(--radius-md);
+            box-shadow: 0 0 60px rgba(0,0,0,0.8);
+        }
+
+        /* ── Toast Notifications ───────────────────────────────────── */
+        #toastContainer {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10000;
+        }
+        .toast {
+            background: var(--surface-solid);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 16px;
+            font-size: 13px;
+            color: var(--text-main);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toast.success { border-color: rgba(63,185,80,0.4); }
+        .toast.error   { border-color: rgba(255,85,85,0.4); }
+        @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+
+        /* ── Drag-over ──────────────────────────────────────────────── */
+        body.dragover { outline: 3px dashed var(--primary); outline-offset: -6px; }
+
+        /* ── Empty state ────────────────────────────────────────────── */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state svg { opacity: 0.2; margin-bottom: 16px; }
+        .empty-state p { font-size: 14px; }
+
+        /* ── Responsive ─────────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .outputs-grid { grid-template-columns: 1fr; }
+            button.primary { width: 100%; }
+            .config-row { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
 
-    <h2>AI Studio Nexus</h2>
-    
-    <div class="toolbar">
-        <div style="flex:1;">
-            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">
-                Hold Ctrl/Cmd to select multiple models
-            </label>
-            <select id="modelSelect" multiple>
-                <option value="">Establishing connection...</option>
-            </select>
+    <!-- ── Lightbox ─────────────────────────────────────────────────── -->
+    <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+        <img id="lightboxImg" src="" alt="Full size preview">
+    </div>
+
+    <!-- ── Toast Container ──────────────────────────────────────────── -->
+    <div id="toastContainer"></div>
+
+    <!-- ── Header ───────────────────────────────────────────────────── -->
+    <header class="site-header">
+        <div class="logo-group">
+            <div class="logo-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </div>
+            <div>
+                <h1>AI Studio <span>Nexus</span></h1>
+                <div class="subtitle">Multi-model parallel inference</div>
+            </div>
         </div>
-        
-        <div style="display:flex; flex-direction:column; justify-content:flex-end;">
-            <button onclick="document.getElementById('fileInput').click()">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                Attach Images
-            </button>
-            <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleImageAttach(event)">
+        <div class="header-status">
+            <div class="status-dot loading" id="statusDot"></div>
+            <span id="statusText">Connecting...</span>
+        </div>
+    </header>
+
+    <!-- ── Model Selector ───────────────────────────────────────────── -->
+    <div class="panel">
+        <div class="model-panel">
+            <div class="panel-label">
+                Models
+                <span class="count-badge" id="selectedCount">0</span>
+                <span style="font-weight:400; font-size:10px; margin-left:4px;">selected — hold Ctrl/Cmd for multi-select</span>
+            </div>
+
+            <div class="model-search-row">
+                <input class="search-input" id="modelSearch" type="text" placeholder="🔍  Filter models..." oninput="filterModels()">
+                <button onclick="clearModelSearch()" title="Clear filter">✕</button>
+            </div>
+
+            <select id="modelSelect" multiple>
+                <option disabled>⏳ Loading models...</option>
+            </select>
+
+            <div class="model-quick-btns" id="quickBtns" style="display:none;">
+                <button class="pill-btn" onclick="selectAll()">Select All</button>
+                <button class="pill-btn" onclick="selectNone()">Deselect All</button>
+                <button class="pill-btn" onclick="selectProvider('Groq')">All Groq</button>
+                <button class="pill-btn" onclick="selectProvider('NVIDIA')">All NVIDIA</button>
+            </div>
         </div>
     </div>
 
-    <div class="image-preview-container" id="previewGallery"></div>
-    <button id="clearImgBtn" style="display:none; margin-bottom: 20px; font-size: 12px; padding: 6px 12px;" onclick="clearImages()">❌ Clear Attachments</button>
+    <!-- ── System Prompt (Collapsible) ──────────────────────────────── -->
+    <div class="panel" style="padding: 14px 20px;">
+        <div class="collapsible-header" onclick="toggleCollapsible('sysPromptBody', 'sysChevron')">
+            <span class="collapsible-title">⚙ System Prompt</span>
+            <span class="chevron" id="sysChevron">▼</span>
+        </div>
+        <div class="collapsible-body" id="sysPromptBody">
+            <textarea id="systemPrompt" placeholder="You are a helpful AI assistant..."></textarea>
+        </div>
+    </div>
 
-    <textarea id="prompt" placeholder="Initialize prompt... (Ctrl+V to paste images directly)"></textarea>
-    
-    <div class="actions">
-        <button onclick="pasteInput()">📋 Paste Content</button>
-        <button class="primary" onclick="sendSimultaneousRequests()" style="font-size: 16px; padding: 14px 28px;">
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    <!-- ── Configuration ────────────────────────────────────────────── -->
+    <div class="panel" style="padding: 14px 20px;">
+        <div class="collapsible-header" onclick="toggleCollapsible('configBody', 'configChevron')">
+            <span class="collapsible-title">🔧 Generation Parameters</span>
+            <span class="chevron" id="configChevron">▼</span>
+        </div>
+        <div class="collapsible-body" id="configBody">
+            <div class="config-row" style="margin-top:12px;">
+                <div class="config-field">
+                    <label>Temperature</label>
+                    <div class="range-row">
+                        <input type="range" id="tempSlider" min="0" max="2" step="0.05" value="0.7" oninput="updateRangeVal('tempSlider','tempVal')">
+                        <span class="range-val" id="tempVal">0.7</span>
+                    </div>
+                </div>
+                <div class="config-field">
+                    <label>Max Tokens</label>
+                    <div class="range-row">
+                        <input type="range" id="maxTokensSlider" min="256" max="8192" step="256" value="4096" oninput="updateRangeVal('maxTokensSlider','maxTokensVal')">
+                        <span class="range-val" id="maxTokensVal">4096</span>
+                    </div>
+                </div>
+                <div class="config-field">
+                    <label>Layout</label>
+                    <select class="sm-select" id="layoutSelect" onchange="applyLayout()">
+                        <option value="auto">Auto Grid</option>
+                        <option value="1">1 Column</option>
+                        <option value="2">2 Columns</option>
+                        <option value="3">3 Columns</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Image Attachments ─────────────────────────────────────────── -->
+    <div class="panel" id="attachPanel" style="padding: 12px 20px;">
+        <div class="panel-label">
+            📎 Attachments
+            <button onclick="document.getElementById('fileInput').click()" style="font-size:11px; padding:4px 10px; margin-left:auto;">+ Add Images</button>
+            <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleImageAttach(event)">
+            <button class="danger" id="clearImgBtn" style="display:none; font-size:11px; padding:4px 10px;" onclick="clearImages()">Clear All</button>
+        </div>
+        <div class="attachments-bar" id="previewGallery">
+            <span style="font-size:12px; color:var(--text-dim);">No attachments — drag & drop images here or paste with Ctrl+V</span>
+        </div>
+    </div>
+
+    <!-- ── Prompt Input ──────────────────────────────────────────────── -->
+    <div class="panel" style="padding: 16px; margin-bottom: 16px;">
+        <div class="prompt-area">
+            <textarea id="prompt" placeholder="Initialize prompt...  (Ctrl+V pastes images, Ctrl+Enter submits)"></textarea>
+            <div class="prompt-footer">
+                <span class="char-count" id="charCount">0 chars</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Conversation History Banner ──────────────────────────────── -->
+    <div class="history-bar" id="historyBar">
+        <span>💬</span>
+        <span><strong id="historyTurnCount">0</strong> turns in conversation history</span>
+        <button style="margin-left:auto; font-size:11px; padding:4px 10px;" class="danger" onclick="clearHistory()">Clear History</button>
+        <button style="font-size:11px; padding:4px 10px;" onclick="exportHistory()">Export</button>
+    </div>
+
+    <!-- ── Action Bar ────────────────────────────────────────────────── -->
+    <div class="actions-bar">
+        <div class="actions-left">
+            <button onclick="pasteInput()" title="Paste text from clipboard">📋 Paste</button>
+            <button onclick="clearPrompt()" title="Clear prompt">🗑 Clear</button>
+            <button onclick="toggleHistory()" id="historyToggleBtn" title="Toggle conversation history mode">
+                💬 History: <span id="historyToggleLabel" style="color:var(--text-muted)">OFF</span>
+            </button>
+        </div>
+        <button class="primary" id="executeBtn" onclick="sendSimultaneousRequests()">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+            </svg>
             Execute Models
         </button>
     </div>
 
-    <div class="outputs-grid" id="outputsGrid"></div>
+    <!-- ── Outputs Grid ──────────────────────────────────────────────── -->
+    <div class="outputs-grid" id="outputsGrid">
+        <div class="empty-state">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <p>Select models and enter a prompt to begin.</p>
+        </div>
+    </div>
 
     <script>
-        let attachedImagesB64 =[];
+    // ── State ───────────────────────────────────────────────────────────────
+    let attachedImagesB64 = [];
+    let allModelData = [];       // { id, provider, type }
+    let conversationHistory = [];// [{ role, content }]
+    let historyMode = false;
+    let isExecuting = false;
 
-        window.onload = async () => {
-            const select = document.getElementById("modelSelect");
-            try {
-                const res = await fetch('/api/models');
-                const data = await res.json();
-                if (data.error) throw new Error(data.error);
+    // ── Boot ────────────────────────────────────────────────────────────────
+    window.addEventListener('load', async () => {
+        await loadModels();
+        setupDragDrop();
+    });
 
-                select.innerHTML = '';['Groq', 'NVIDIA'].forEach(providerName => {
-                    const groupModels = data.data.filter(m => m.provider === providerName).sort((a,b) => a.id.localeCompare(b.id));
-                    if (groupModels.length > 0) {
-                        const optGroup = document.createElement('optgroup');
-                        optGroup.label = `[ ${providerName.toUpperCase()} ]`;
-                        
-                        groupModels.forEach(m => {
-                            let opt = document.createElement('option');
-                            opt.value = m.id;
-                            opt.textContent = m.id;
-                            opt.dataset.provider = m.provider;
-                            if (m.id === 'llama3-8b-8192' || m.id === 'meta/llama-3.1-8b-instruct') opt.selected = true;
-                            optGroup.appendChild(opt);
-                        });
-                        select.appendChild(optGroup);
-                    }
-                });
-            } catch (err) {
-                select.innerHTML = '<option value="">Network failure. Retrying...</option>';
+    // ── Model Loading ────────────────────────────────────────────────────────
+    async function loadModels() {
+        const select = document.getElementById('modelSelect');
+        const dot    = document.getElementById('statusDot');
+        const txt    = document.getElementById('statusText');
+
+        dot.className = 'status-dot loading';
+        txt.textContent = 'Connecting...';
+
+        try {
+            const res  = await fetch('/api/models');
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to fetch models');
+
+            allModelData = data.data;
+            renderModelSelect(allModelData);
+
+            const providerList = [...new Set(allModelData.map(m => m.provider))].join(', ');
+            dot.className = 'status-dot online';
+            txt.textContent = `${allModelData.length} models loaded (${providerList})`;
+
+            document.getElementById('quickBtns').style.display = 'flex';
+
+            if (data.errors) {
+                showToast(`⚠ Partial load: ${data.errors.join('; ')}`, 'error');
             }
-        };
-
-        function handleImageAttach(event) { 
-            Array.from(event.target.files).forEach(file => processImage(file)); 
+        } catch (err) {
+            select.innerHTML = '<option disabled>❌ Failed to load models</option>';
+            dot.className = 'status-dot error';
+            txt.textContent = 'Connection failed';
+            showToast('Failed to load models: ' + err.message, 'error');
         }
+    }
 
-        document.getElementById('prompt').addEventListener('paste', (e) => {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let item of items) {
-                if (item.kind === 'file' && item.type.includes('image/')) processImage(item.getAsFile());
-            }
-        });
+    function renderModelSelect(models) {
+        const select = document.getElementById('modelSelect');
+        select.innerHTML = '';
 
-        function processImage(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const b64 = e.target.result;
-                attachedImagesB64.push(b64);
-                const img = document.createElement('img');
-                img.src = b64;
-                img.className = 'img-thumb';
-                document.getElementById('previewGallery').appendChild(img);
-                document.getElementById('clearImgBtn').style.display = 'inline-block';
-            };
-            reader.readAsDataURL(file);
-        }
+        const providers = ['Groq', 'NVIDIA'];
+        providers.forEach(providerName => {
+            const groupModels = models
+                .filter(m => m.provider === providerName)
+                .sort((a, b) => a.id.localeCompare(b.id));
 
-        function clearImages() {
-            attachedImagesB64 =[];
-            document.getElementById('previewGallery').innerHTML = '';
-            document.getElementById('clearImgBtn').style.display = 'none';
-            document.getElementById('fileInput').value = '';
-        }
+            if (groupModels.length === 0) return;
 
-        async function pasteInput() {
-            try {
-                const text = await navigator.clipboard.readText();
-                document.getElementById('prompt').value += text;
-            } catch (err) { 
-                alert("Please use Ctrl+V or Cmd+V to paste text."); 
-            }
-        }
+            const optGroup = document.createElement('optgroup');
+            optGroup.label = `[ ${providerName.toUpperCase()} ] — ${groupModels.length} models`;
 
-        function isImageGenerationModel(modelId) {
-            const lower = modelId.toLowerCase();
-            return lower.includes('stable-diffusion') || lower.includes('sdxl') || lower.includes('flux') || lower.includes('dall-e');
-        }
+            groupModels.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.dataset.provider = m.provider;
+                opt.dataset.type = m.type || 'chat';
+                // Friendly display: strip long prefixes like "meta/"
+                opt.textContent = m.type === 'image' ? `🖼  ${m.id}` : m.id;
+                if (m.type === 'image') opt.className = 'image-model';
 
-        async function sendSimultaneousRequests() {
-            const selectElement = document.getElementById('modelSelect');
-            const selectedOptions = Array.from(selectElement.selectedOptions);
-            const prompt = document.getElementById('prompt').value;
-            const outputsGrid = document.getElementById('outputsGrid');
-
-            if (!prompt) return alert("Please enter a prompt!");
-            if (selectedOptions.length === 0) return alert("Please select at least one AI model!");
-
-            outputsGrid.innerHTML = '';
-
-            const requestPromises = selectedOptions.map(async (opt) => {
-                const model = opt.value;
-                const provider = opt.dataset.provider;
-                
-                const card = document.createElement('div');
-                card.className = 'output-card';
-                card.innerHTML = `
-                    <div class="output-header">
-                        <span class="output-model-name ${provider}">[${provider}] ${model}</span>
-                        <button class="copyBtn" style="display:none; font-size:12px; padding:6px 12px;">📋 Copy</button>
-                    </div>
-                    <div class="output-content loader">Generating response...</div>
-                    <img class="output-img" style="display:none;" alt="Generated Image">
-                `;
-                outputsGrid.appendChild(card);
-
-                const contentDiv = card.querySelector('.output-content');
-                const imgDiv = card.querySelector('.output-img');
-                const copyBtn = card.querySelector('.copyBtn');
-
-                try {
-                    let endpoint = '/api/chat';
-                    let payload = { model, provider, prompt };
-
-                    if (isImageGenerationModel(model)) {
-                        endpoint = '/api/image';
-                    } else if (attachedImagesB64.length > 0) {
-                        payload.images_b64 = attachedImagesB64;
-                    }
-
-                    const res = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(typeof data.error === 'object' ? JSON.stringify(data.error) : data.error);
-
-                    if (data.isImage) {
-                        contentDiv.style.display = 'none';
-                        imgDiv.src = data.reply;
-                        imgDiv.style.display = 'block';
-                        
-                        copyBtn.innerText = "💾 Save";
-                        copyBtn.onclick = () => {
-                            const a = document.createElement('a');
-                            a.href = data.reply;
-                            a.download = `${model}_${Date.now()}.png`;
-                            a.click();
-                        };
-                        copyBtn.style.display = 'inline-block';
-                    } else {
-                        // FIX: Applying .trim() to eliminate excessive line breaks!
-                        contentDiv.innerText = typeof data.reply === 'string' ? data.reply.trim() : data.reply;
-                        contentDiv.classList.remove('loader');
-                        
-                        copyBtn.innerText = "📋 Copy";
-                        copyBtn.onclick = async () => {
-                            await navigator.clipboard.writeText(contentDiv.innerText);
-                            copyBtn.innerText = "✅ Copied";
-                            setTimeout(() => copyBtn.innerText = "📋 Copy", 2000);
-                        };
-                        copyBtn.style.display = 'inline-block';
-                    }
-                } catch (err) {
-                    contentDiv.innerText = "Error: \n" + err.message;
-                    contentDiv.classList.remove('loader');
-                    contentDiv.classList.add('output-error'); // Applies the red color and wrap-fix
+                // Sensible defaults
+                if (m.id === 'llama3-8b-8192' || m.id === 'meta/llama-3.1-8b-instruct') {
+                    opt.selected = true;
                 }
+                optGroup.appendChild(opt);
             });
 
-            await Promise.all(requestPromises);
+            select.appendChild(optGroup);
+        });
+
+        select.addEventListener('change', updateSelectedCount);
+        updateSelectedCount();
+    }
+
+    // ── Model Filtering ──────────────────────────────────────────────────────
+    function filterModels() {
+        const q = document.getElementById('modelSearch').value.toLowerCase();
+        const filtered = q
+            ? allModelData.filter(m => m.id.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q))
+            : allModelData;
+        renderModelSelect(filtered);
+    }
+
+    function clearModelSearch() {
+        document.getElementById('modelSearch').value = '';
+        filterModels();
+    }
+
+    // ── Model Quick-Select ───────────────────────────────────────────────────
+    function selectAll() {
+        const opts = document.querySelectorAll('#modelSelect option');
+        opts.forEach(o => o.selected = true);
+        updateSelectedCount();
+    }
+
+    function selectNone() {
+        const opts = document.querySelectorAll('#modelSelect option');
+        opts.forEach(o => o.selected = false);
+        updateSelectedCount();
+    }
+
+    function selectProvider(provider) {
+        const opts = document.querySelectorAll('#modelSelect option');
+        opts.forEach(o => {
+            if (o.dataset.provider === provider) o.selected = true;
+        });
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const n = Array.from(document.querySelectorAll('#modelSelect option')).filter(o => o.selected).length;
+        document.getElementById('selectedCount').textContent = n;
+    }
+
+    // ── Image Handling ───────────────────────────────────────────────────────
+    function handleImageAttach(event) {
+        Array.from(event.target.files).forEach(processImage);
+        event.target.value = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('prompt').addEventListener('paste', handlePaste);
+        document.getElementById('prompt').addEventListener('input', updateCharCount);
+        document.getElementById('prompt').addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                sendSimultaneousRequests();
+            }
+        });
+    });
+
+    function handlePaste(e) {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (const item of items) {
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+                processImage(item.getAsFile());
+            }
         }
+    }
+
+    function setupDragDrop() {
+        const body = document.body;
+        body.addEventListener('dragover', e => { e.preventDefault(); body.classList.add('dragover'); });
+        body.addEventListener('dragleave', () => body.classList.remove('dragover'));
+        body.addEventListener('drop', e => {
+            e.preventDefault();
+            body.classList.remove('dragover');
+            Array.from(e.dataTransfer.files)
+                .filter(f => f.type.startsWith('image/'))
+                .forEach(processImage);
+        });
+    }
+
+    function processImage(file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const b64 = e.target.result;
+            attachedImagesB64.push(b64);
+            renderAttachments();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function renderAttachments() {
+        const gallery = document.getElementById('previewGallery');
+        const clearBtn = document.getElementById('clearImgBtn');
+
+        if (attachedImagesB64.length === 0) {
+            gallery.innerHTML = '<span style="font-size:12px; color:var(--text-dim);">No attachments — drag & drop images here or paste with Ctrl+V</span>';
+            clearBtn.style.display = 'none';
+            return;
+        }
+
+        gallery.innerHTML = '';
+        clearBtn.style.display = 'inline-flex';
+
+        attachedImagesB64.forEach((b64, idx) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'img-thumb-wrap';
+
+            const img = document.createElement('img');
+            img.src = b64;
+            img.className = 'img-thumb';
+            img.title = 'Click to enlarge';
+            img.onclick = () => openLightbox(b64);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'img-remove';
+            removeBtn.textContent = '✕';
+            removeBtn.title = 'Remove';
+            removeBtn.onclick = () => removeImage(idx);
+
+            wrap.appendChild(img);
+            wrap.appendChild(removeBtn);
+            gallery.appendChild(wrap);
+        });
+    }
+
+    function removeImage(idx) {
+        attachedImagesB64.splice(idx, 1);
+        renderAttachments();
+    }
+
+    function clearImages() {
+        attachedImagesB64 = [];
+        renderAttachments();
+    }
+
+    // ── Lightbox ─────────────────────────────────────────────────────────────
+    function openLightbox(src) {
+        document.getElementById('lightboxImg').src = src;
+        document.getElementById('lightbox').classList.add('open');
+    }
+    function closeLightbox() {
+        document.getElementById('lightbox').classList.remove('open');
+    }
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeLightbox();
+    });
+
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    function showToast(msg, type = 'info', duration = 3500) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+        toast.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+
+    // ── Collapsible Sections ──────────────────────────────────────────────────
+    function toggleCollapsible(bodyId, chevronId) {
+        const body    = document.getElementById(bodyId);
+        const chevron = document.getElementById(chevronId);
+        body.classList.toggle('open');
+        chevron.classList.toggle('open');
+    }
+
+    // ── Range Inputs ──────────────────────────────────────────────────────────
+    function updateRangeVal(sliderId, valId) {
+        document.getElementById(valId).textContent = document.getElementById(sliderId).value;
+    }
+
+    // ── Layout ────────────────────────────────────────────────────────────────
+    function applyLayout() {
+        const val  = document.getElementById('layoutSelect').value;
+        const grid = document.getElementById('outputsGrid');
+        if (val === 'auto') {
+            grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(460px, 1fr))';
+        } else {
+            grid.style.gridTemplateColumns = `repeat(${val}, 1fr)`;
+        }
+    }
+
+    // ── Char Count ────────────────────────────────────────────────────────────
+    function updateCharCount() {
+        const n   = document.getElementById('prompt').value.length;
+        const el  = document.getElementById('charCount');
+        el.textContent = `${n.toLocaleString()} chars`;
+        el.className   = `char-count${n > 6000 ? ' warn' : ''}`;
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────────────
+    async function pasteInput() {
+        try {
+            const text = await navigator.clipboard.readText();
+            const ta   = document.getElementById('prompt');
+            const pos  = ta.selectionStart;
+            ta.value   = ta.value.slice(0, pos) + text + ta.value.slice(ta.selectionEnd);
+            ta.selectionStart = ta.selectionEnd = pos + text.length;
+            updateCharCount();
+        } catch {
+            showToast('Use Ctrl+V / Cmd+V to paste.', 'error');
+        }
+    }
+
+    function clearPrompt() {
+        document.getElementById('prompt').value = '';
+        updateCharCount();
+    }
+
+    // ── History Mode ──────────────────────────────────────────────────────────
+    function toggleHistory() {
+        historyMode = !historyMode;
+        document.getElementById('historyToggleLabel').textContent = historyMode ? 'ON' : 'OFF';
+        document.getElementById('historyToggleLabel').style.color = historyMode ? 'var(--accent)' : 'var(--text-muted)';
+        if (!historyMode) clearHistory();
+        showToast(`Conversation history ${historyMode ? 'enabled' : 'disabled'}.`);
+    }
+
+    function clearHistory() {
+        conversationHistory = [];
+        updateHistoryBanner();
+    }
+
+    function updateHistoryBanner() {
+        const bar = document.getElementById('historyBar');
+        const turns = Math.floor(conversationHistory.length / 2);
+        if (historyMode && conversationHistory.length > 0) {
+            bar.classList.add('active');
+            document.getElementById('historyTurnCount').textContent = turns;
+        } else {
+            bar.classList.remove('active');
+        }
+    }
+
+    function exportHistory() {
+        const blob = new Blob([JSON.stringify(conversationHistory, null, 2)], { type: 'application/json' });
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = `history_${Date.now()}.json`;
+        a.click();
+    }
+
+    function isImageGenerationModel(modelId) {
+        const lower = modelId.toLowerCase();
+        return lower.includes('stable-diffusion') || lower.includes('sdxl') ||
+               lower.includes('flux')             || lower.includes('dall-e');
+    }
+
+    // ── Main Execute ──────────────────────────────────────────────────────────
+    async function sendSimultaneousRequests() {
+        if (isExecuting) return;
+
+        const selectEl      = document.getElementById('modelSelect');
+        const selectedOpts  = Array.from(selectEl.selectedOptions);
+        const prompt        = document.getElementById('prompt').value.trim();
+        const systemPrompt  = document.getElementById('systemPrompt').value.trim();
+        const temperature   = parseFloat(document.getElementById('tempSlider').value);
+        const maxTokens     = parseInt(document.getElementById('maxTokensSlider').value, 10);
+        const outputsGrid   = document.getElementById('outputsGrid');
+        const executeBtn    = document.getElementById('executeBtn');
+
+        if (!prompt)                 return showToast('Please enter a prompt!', 'error');
+        if (!selectedOpts.length)    return showToast('Please select at least one model!', 'error');
+
+        isExecuting = true;
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<div class="spinner"></div> Running...';
+
+        outputsGrid.innerHTML = '';
+
+        // Build cards first so they all appear immediately
+        const tasks = selectedOpts.map(opt => {
+            const model    = opt.value;
+            const provider = opt.dataset.provider;
+            const card     = createOutputCard(model, provider);
+            outputsGrid.appendChild(card);
+            return { model, provider, card };
+        });
+
+        // Fire all requests in parallel
+        const startAll = Date.now();
+        await Promise.allSettled(tasks.map(t =>
+            runModel(t.model, t.provider, t.card, prompt, systemPrompt, temperature, maxTokens)
+        ));
+
+        // If history mode, record the user message once (use only chat models' responses)
+        if (historyMode) {
+            conversationHistory.push({ role: 'user', content: prompt });
+            // Note: multi-model history is per-model in a real app; here we just log the turn
+            updateHistoryBanner();
+        }
+
+        clearPrompt();
+
+        const elapsed = ((Date.now() - startAll) / 1000).toFixed(1);
+        showToast(`✅ All ${tasks.length} model(s) completed in ${elapsed}s`, 'success');
+
+        isExecuting = false;
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = `
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+            </svg>
+            Execute Models`;
+    }
+
+    // ── Create Output Card ───────────────────────────────────────────────────
+    function createOutputCard(model, provider) {
+        const card = document.createElement('div');
+        card.className = 'output-card';
+        card.innerHTML = `
+            <div class="output-card-header">
+                <div class="output-header-left">
+                    <div class="provider-dot ${provider}"></div>
+                    <span class="output-model-name ${provider}" title="${model}">[${provider}] ${model}</span>
+                </div>
+                <div class="output-header-right" id="metrics-${CSS.escape(model)}">
+                    <!-- metrics injected here -->
+                </div>
+            </div>
+            <div class="output-card-body">
+                <div class="output-content loading-state" id="content-${CSS.escape(model)}">
+                    <div class="spinner"></div> Generating...
+                </div>
+                <img class="output-img" id="img-${CSS.escape(model)}" style="display:none;" alt="Generated image">
+            </div>
+            <div class="output-card-footer" id="footer-${CSS.escape(model)}" style="display:none;"></div>
+        `;
+        return card;
+    }
+
+    // ── Run a single model ───────────────────────────────────────────────────
+    async function runModel(model, provider, card, prompt, systemPrompt, temperature, maxTokens) {
+        const contentEl  = card.querySelector('.output-content');
+        const imgEl      = card.querySelector('.output-img');
+        const footerEl   = card.querySelector('.output-card-footer');
+        const metricsEl  = card.querySelector('.output-header-right');
+        const startTime  = Date.now();
+
+        // Reset
+        contentEl.className = 'output-content loading-state';
+        contentEl.innerHTML = '<div class="spinner"></div> Generating...';
+
+        try {
+            if (isImageGenerationModel(model)) {
+                await runImageModel(model, prompt, contentEl, imgEl, footerEl, metricsEl, startTime);
+            } else {
+                await runChatModel(model, provider, prompt, systemPrompt, temperature, maxTokens, contentEl, footerEl, metricsEl, startTime);
+            }
+        } catch (err) {
+            contentEl.className = 'output-content error-state';
+            contentEl.textContent = 'Error: ' + err.message;
+        }
+    }
+
+    // ── Chat / Streaming ─────────────────────────────────────────────────────
+    async function runChatModel(model, provider, prompt, systemPrompt, temperature, maxTokens, contentEl, footerEl, metricsEl, startTime) {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model, provider, prompt,
+                images_b64:    attachedImagesB64.length ? attachedImagesB64 : undefined,
+                history:       historyMode ? conversationHistory : [],
+                system_prompt: systemPrompt,
+                temperature,
+                max_tokens:    maxTokens,
+            }),
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error(typeof err.error === 'object' ? JSON.stringify(err.error) : err.error);
+        }
+
+        // ── Stream reading ──────────────────────────────────────────────────
+        contentEl.className = 'output-content';
+        contentEl.innerHTML = '';
+
+        const cursor = document.createElement('span');
+        cursor.className = 'stream-cursor';
+        contentEl.appendChild(cursor);
+
+        let fullText     = '';
+        let inputTokens  = 0;
+        let outputTokens = 0;
+        const reader     = res.body.getReader();
+        const decoder   = new TextDecoder();
+        let buffer       = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const raw = line.slice(6).trim();
+
+                try {
+                    const parsed = JSON.parse(raw);
+
+                    if (parsed.error) throw new Error(parsed.error);
+
+                    if (parsed.delta) {
+                        fullText += parsed.delta;
+                        // Insert text before cursor
+                        cursor.insertAdjacentText('beforebegin', parsed.delta);
+                    }
+
+                    if (parsed.done) {
+                        inputTokens  = parsed.usage?.input  || 0;
+                        outputTokens = parsed.usage?.output || 0;
+                    }
+                } catch (parseErr) {
+                    // skip malformed line
+                }
+            }
+        }
+
+        // Remove cursor when done
+        cursor.remove();
+
+        // Render metrics
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        if (outputTokens > 0) {
+            const tps = (outputTokens / parseFloat(elapsed)).toFixed(0);
+            metricsEl.innerHTML = `
+                <span class="metric-badge tokens">⚡ ${tps} tok/s</span>
+                <span class="metric-badge tokens">${outputTokens} out</span>
+                <span class="metric-badge time">⏱ ${elapsed}s</span>
+            `;
+        } else {
+            metricsEl.innerHTML = `<span class="metric-badge time">⏱ ${elapsed}s</span>`;
+        }
+
+        // Footer actions
+        footerEl.style.display = 'flex';
+        footerEl.innerHTML = '';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = '📋 Copy';
+        copyBtn.onclick = async () => {
+            await navigator.clipboard.writeText(fullText);
+            copyBtn.textContent = '✅ Copied';
+            setTimeout(() => copyBtn.textContent = '📋 Copy', 2000);
+        };
+
+        const downloadBtn = document.createElement('button');
+        downloadBtn.textContent = '💾 Save .txt';
+        downloadBtn.onclick = () => {
+            const blob = new Blob([fullText], { type: 'text/plain' });
+            const a    = document.createElement('a');
+            a.href     = URL.createObjectURL(blob);
+            a.download = `${model}_${Date.now()}.txt`;
+            a.click();
+        };
+
+        footerEl.appendChild(copyBtn);
+        footerEl.appendChild(downloadBtn);
+
+        // Record assistant turn for history
+        if (historyMode && fullText) {
+            conversationHistory.push({ role: 'assistant', content: fullText });
+        }
+    }
+
+    // ── Image Generation ─────────────────────────────────────────────────────
+    async function runImageModel(model, prompt, contentEl, imgEl, footerEl, metricsEl, startTime) {
+        const res = await fetch('/api/image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, prompt }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(typeof data.error === 'object' ? JSON.stringify(data.error) : data.error);
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        metricsEl.innerHTML = `<span class="metric-badge time">⏱ ${elapsed}s</span>`;
+
+        contentEl.style.display = 'none';
+        imgEl.src = data.reply;
+        imgEl.style.display = 'block';
+        imgEl.onclick = () => openLightbox(data.reply);
+        imgEl.style.cursor = 'zoom-in';
+
+        footerEl.style.display = 'flex';
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '💾 Save Image';
+        saveBtn.onclick = () => {
+            const a    = document.createElement('a');
+            a.href     = data.reply;
+            a.download = `${model}_${Date.now()}.png`;
+            a.click();
+        };
+        footerEl.appendChild(saveBtn);
+    }
     </script>
 </body>
 </html>
