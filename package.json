@@ -8,8 +8,7 @@
       "node": ">=18.17"
     },
     "scripts": {
-      "start": "node server.js",
-      "check": "node --check server.js"
+      "start": "node server.js"
     },
     "dependencies": {
       "compression": "^1.7.4",
